@@ -155,7 +155,9 @@ if (window.module !== undefined) {
             return '<ul id="medium-editor-toolbar-actions" class="medium-editor-toolbar-actions clearfix">' +
                 '    <li><button class="medium-editor-action medium-editor-action-bold" data-action="bold" data-element="b">B</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-italic" data-action="italic" data-element="i">I</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-underline" data-action="underline" data-element="u">S</button></li>' +
+                '    <li><button class="medium-editor-action medium-editor-action-underline" data-action="underline" data-element="u">U</button></li>' +
+                '    <li><button class="medium-editor-action medium-editor-action-strikeThrough" data-action="strikeThrough" data-element="s">S</button></li>' +
+                '    <li><button class="medium-editor-action medium-editor-action-color" data-action="color" data-element="a">C</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-anchor" data-action="anchor" data-element="a">#</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-header1" data-action="append-' + this.options.firstHeader + '" data-element="' + this.options.firstHeader + '">' + this.options.firstHeader + '</button></li>' +
                 // '    <li><button class="medium-editor-action medium-editor-action-header2" data-action="append-' + this.options.secondHeader + '" data-element="' + this.options.secondHeader + '">' + this.options.secondHeader + '</button></li>' +
@@ -163,6 +165,9 @@ if (window.module !== undefined) {
                 '</ul>' +
                 '<div class="medium-editor-toolbar-form-anchor" id="medium-editor-toolbar-form-anchor">' +
                 '    <input type="text" value="" placeholder="' + this.options.anchorInputPlaceholder + '"><a href="#">&times;</a>' +
+                '</div>' +
+                '<div class="medium-editor-toolbar-form-color" id="medium-editor-toolbar-form-color">' +
+                '    Colors go here <a href="#">&times;</a>' +
                 '</div>';
         },
 
@@ -170,6 +175,7 @@ if (window.module !== undefined) {
             this.toolbar = this.createToolbar();
             this.keepToolbarAlive = false;
             this.anchorForm = this.toolbar.querySelector('.medium-editor-toolbar-form-anchor');
+            this.colorForm = this.toolbar.querySelector('.medium-editor-toolbar-form-color');
             this.toolbarActions = this.toolbar.querySelector('.medium-editor-toolbar-actions');
             return this;
         },
@@ -337,6 +343,8 @@ if (window.module !== undefined) {
                 this.setToolbarButtonStates();
             } else if (action === 'anchor') {
                 this.triggerAnchorAction(e);
+            } else if (action === 'color') {
+                this.triggerColorAction(e);
             } else {
                 document.execCommand(action, null, false);
                 this.notify();
@@ -353,6 +361,20 @@ if (window.module !== undefined) {
                     this.showToolbarActions();
                 } else {
                     this.showAnchorForm();
+                }
+            }
+            return this;
+        },
+
+        triggerColorAction: function () {
+            if (this.selection.anchorNode.parentNode.tagName.toLowerCase() === 'a') {
+                document.execCommand('unlink', null, false);
+                this.notify();
+            } else {
+                if (this.colorForm.style.display === 'block') {
+                    this.showToolbarActions();
+                } else {
+                    this.showColorForm();
                 }
             }
             return this;
@@ -441,6 +463,14 @@ if (window.module !== undefined) {
             input.value = '';
         },
 
+        showColorForm: function () {
+            var input = this.anchorForm.querySelector('input');
+            this.toolbarActions.style.display = 'none';
+            // this.savedSelection = saveSelection();
+            this.colorForm.style.display = 'block';
+            this.keepToolbarAlive = true;
+        },
+
         bindAnchorForm: function () {
             var input = this.anchorForm.querySelector('input'),
                 linkCancel = this.anchorForm.querySelector('a'),
@@ -453,6 +483,21 @@ if (window.module !== undefined) {
                     e.preventDefault();
                     self.createLink(this);
                 }
+            });
+            linkCancel.addEventListener('click', function (e) {
+                e.preventDefault();
+                self.showToolbarActions();
+                restoreSelection(self.savedSelection);
+            });
+            return this;
+        },
+
+        bindColorForm: function () {
+            var input = this.colorForm.querySelector('input'),
+                linkCancel = this.colorForm.querySelector('a'),
+                self = this;
+            this.colorForm.addEventListener('click', function (e) {
+                e.stopPropagation();
             });
             linkCancel.addEventListener('click', function (e) {
                 e.preventDefault();
