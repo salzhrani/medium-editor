@@ -134,6 +134,7 @@ if (window.module !== undefined) {
                         }
                     }
                 }
+                self.notify();
             });
             return this;
         },
@@ -338,6 +339,7 @@ if (window.module !== undefined) {
                 this.triggerAnchorAction(e);
             } else {
                 document.execCommand(action, null, false);
+                this.notify();
                 this.setToolbarPosition();
             }
         },
@@ -345,6 +347,7 @@ if (window.module !== undefined) {
         triggerAnchorAction: function () {
             if (this.selection.anchorNode.parentNode.tagName.toLowerCase() === 'a') {
                 document.execCommand('unlink', null, false);
+                this.notify();
             } else {
                 if (this.anchorForm.style.display === 'block') {
                     this.showToolbarActions();
@@ -361,12 +364,16 @@ if (window.module !== undefined) {
             // allowing nesting, we need to use outdent
             // https://developer.mozilla.org/en-US/docs/Rich-Text_Editing_in_Mozilla
             if (el === 'blockquote' && selectionData.el.parentNode.tagName.toLowerCase() === 'blockquote') {
-                return document.execCommand('outdent', false, null);
+                var rval = document.execCommand('outdent', false, null);
+                this.notify();
+                return rval;
             }
             if (selectionData.tagName === el) {
                 el = 'p';
             }
-            return document.execCommand('formatBlock', false, el);
+            var rval = document.execCommand('formatBlock', false, el);
+            this.notify();
+            return rval;
         },
 
         getSelectionData: function (el) {
@@ -458,8 +465,14 @@ if (window.module !== undefined) {
         createLink: function (input) {
             restoreSelection(this.savedSelection);
             document.execCommand('createLink', false, input.value);
+            this.notify()
             this.showToolbarActions();
             input.value = '';
+        },
+
+        notify: function () {
+            var ev = new Event('DOMCharacterDataModified'); 
+            this.elements[0].dispatchEvent(ev);
         },
 
         bindWindowActions: function () {
@@ -540,6 +553,7 @@ if (window.module !== undefined) {
                     html += '<p>' + paragraphs[p] + '</p>';
                 }
                 document.execCommand('insertHTML', false, html);
+                this.notify();
             }
         },
 
