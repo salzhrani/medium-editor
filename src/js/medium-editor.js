@@ -112,6 +112,7 @@ if (window.module !== undefined) {
                     this.initToolbar()
                         .bindSelect()
                         .bindButtons()
+                        .bindColors()
                         .bindAnchorForm();
                 }
             }
@@ -150,7 +151,7 @@ if (window.module !== undefined) {
             });
         },
 
-        //TODO: actionTemplate
+        //TODO: actionTemplate colors: [["transparent","rgb(64, 64, 64)"], ["#FFFFc1",'rgb(141, 86, 0)'], ["#E4FFE0","rgb(5, 104, 0)"], ["#E8F9FF",'rgb(0, 88, 163)'],["#F6EBFF",'rgb(103, 64, 135)'],["#FFF3F5","rgb(255, 243, 245)"]],
         toolbarTemplate: function () {
             return '<ul id="medium-editor-toolbar-actions" class="medium-editor-toolbar-actions clearfix">' +
                 '    <li><button class="medium-editor-action medium-editor-action-bold" data-action="bold" data-element="b">B</button></li>' +
@@ -164,10 +165,16 @@ if (window.module !== undefined) {
                 '    <li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>' +
                 '</ul>' +
                 '<div class="medium-editor-toolbar-form-anchor" id="medium-editor-toolbar-form-anchor">' +
-                '    <input type="text" value="" placeholder="' + this.options.anchorInputPlaceholder + '"><a href="#">&times;</a>' +
+                '    <input type="text" value="" placeholder="' + this.options.anchorInputPlaceholder + '"><a href="javascript:void(0)">&times;</a>' +
                 '</div>' +
                 '<div class="medium-editor-toolbar-form-color" id="medium-editor-toolbar-form-color">' +
-                '    Colors go here <a href="#">&times;</a>' +
+                '    <label class="medium-editor-color medium-editor-color-default">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="0" data-forecolor="rgb(64, 64, 64)" data-bgcolor="transparent"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-yellow">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="1" data-forecolor="rgb(141, 86, 0)" data-bgcolor="#FFFFc1"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-lime">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="2" data-forecolor="rgb(5, 104, 0)" data-bgcolor="#E4FFE0"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-blue">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="3" data-forecolor="rgb(0, 88, 163)" data-bgcolor="#E8F9FF"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-purple">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="4" data-forecolor="rgb(103, 64, 135)" data-bgcolor="#F6EBFF"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-pink">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="5" data-forecolor="rgb(255, 243, 245)" data-bgcolor="#FFF3F5"></label>'+
+                '    <a href="javascript:void(0)" class="medium-editor-color-close">&times;</a>' +
                 '</div>';
         },
 
@@ -276,6 +283,11 @@ if (window.module !== undefined) {
                 buttons[i].classList.remove('medium-editor-button-active');
                 this.showHideButton(buttons[i]);
             }
+            var colors = this.toolbar.querySelectorAll('.medium-editor-color');
+            for (i = 0; i < colors.length; i += 1) {
+                colors[i].classList.remove('medium-editor-color-active');
+                // this.showHideButton(colors[i]);
+            }
             this.checkActiveButtons();
             return this;
         },
@@ -294,15 +306,35 @@ if (window.module !== undefined) {
                 parentNode = this.selection.anchorNode.parentNode;
             }
             while (parentNode.tagName !== undefined && this.parentElements.indexOf(parentNode.tagName) === -1) {
+                if (parentNode.tagName.toLowerCase() === 'span')
+                {
+                    if (parentNode.style.backgroundColor !== '' && parentNode.style.color !== '') {
+                        this.activateButton(parentNode.tagName.toLowerCase(), parentNode.style.color);
+                    } else {
+                        this.activateButton(parentNode.tagName.toLowerCase(), null);
+                    }
+
+                }
                 this.activateButton(parentNode.tagName.toLowerCase());
                 parentNode = parentNode.parentNode;
             }
         },
 
-        activateButton: function (tag) {
-            var el = this.toolbar.querySelector('[data-element="' + tag + '"]');
-            if (el !== null && el.className.indexOf('medium-editor-button-active') === -1) {
-                el.className += ' medium-editor-button-active';
+        activateButton: function (tag, fg) {
+            var el, klass = 'medium-editor-button-active';
+            if (fg !== undefined && fg !== null)
+            {
+                el = this.toolbar.querySelector('[data-forecolor="' + fg + '"]');
+                el = el.parentNode;
+                klass = 'medium-editor-color-active';
+            } else if (fg === null) {
+                el = this.toolbar.querySelector('[data-forecolor="' + fg + '"]');
+                klass = 'medium-editor-color-active';
+            } else {
+                el = this.toolbar.querySelector('[value="0"]');
+            }
+            if (el !== null && el.className.indexOf(klass) === -1) {
+                el.className += ' '+klass;
             }
         },
 
@@ -330,6 +362,30 @@ if (window.module !== undefined) {
             return this;
         },
 
+        bindColors: function () {
+            var colors = this.toolbar.querySelectorAll('.medium-editor-color-radio'),
+                i,
+                self = this,
+                triggerAction = function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (self.selection === undefined) {
+                        self.checkSelection(e);
+                    }
+                    if (this.parentNode.className.indexOf('medium-editor-color-active') > -1) {
+                        this.parentNode.classList.remove('medium-editor-color-active');
+                    } else {
+                        this.parentNode.className += ' medium-editor-color-active';
+                    }
+                    self.setColor(this.getAttribute('data-forecolor'), this.getAttribute('data-bgcolor'), e);
+                };
+            for (i = 0; i < colors.length; i += 1) {
+                colors[i].addEventListener('click', triggerAction);
+            }
+            this.setFirstAndLastItems(colors);
+            return this;
+        },
+
         setFirstAndLastItems: function (buttons) {
             buttons[0].className += ' medium-editor-button-first';
             buttons[buttons.length - 1].className += ' medium-editor-button-last';
@@ -347,9 +403,30 @@ if (window.module !== undefined) {
                 this.triggerColorAction(e);
             } else {
                 document.execCommand(action, null, false);
-                this.notify();
+                this.notify();  
                 this.setToolbarPosition();
             }
+        },
+
+        setColor: function (forecolor, backcolor, e) {
+            var ie = navigator.appName === 'Microsoft Internet Explorer';
+            var clrCommand = (ie ? "ForeColor" : "foreColor");
+            var command = (ie ? "HiliteColor" : "hiliteColor");
+            restoreSelection(this.savedSelection);
+            if(backcolor !== "transparent")
+            {
+                document.execCommand('useCSS',false,false);
+                document.execCommand(command,false,backcolor);
+                document.execCommand(clrCommand,false,forecolor);
+            }
+            else
+            {
+                document.execCommand('useCSS',false,false);
+                document.execCommand("removeFormat",false,command);
+                document.execCommand("removeFormat",false,clrCommand);
+            }
+            this.notify();
+            this.setToolbarPosition();
         },
 
         triggerAnchorAction: function () {
@@ -445,6 +522,7 @@ if (window.module !== undefined) {
                 },
                 timer;
             this.anchorForm.style.display = 'none';
+            this.colorForm.style.display = 'none';
             this.toolbarActions.style.display = 'block';
             this.keepToolbarAlive = false;
             clearTimeout(timer);
@@ -466,7 +544,7 @@ if (window.module !== undefined) {
         showColorForm: function () {
             var input = this.anchorForm.querySelector('input');
             this.toolbarActions.style.display = 'none';
-            // this.savedSelection = saveSelection();
+            this.savedSelection = saveSelection();
             this.colorForm.style.display = 'block';
             this.keepToolbarAlive = true;
         },
