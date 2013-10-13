@@ -113,7 +113,9 @@ if (window.module !== undefined) {
                         .bindSelect()
                         .bindButtons()
                         .bindColors()
-                        .bindAnchorForm();
+                        .bindAnchorForm()
+                        .bindRefForm()
+                        .bindColorForm();
                 }
             }
             return this;
@@ -158,8 +160,9 @@ if (window.module !== undefined) {
                 '    <li><button class="medium-editor-action medium-editor-action-italic" data-action="italic" data-element="i">I</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-underline" data-action="underline" data-element="u">U</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-strikeThrough" data-action="strikeThrough" data-element="s">S</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-color" data-action="color" data-element="a">C</button></li>' +
+                '    <li><button class="medium-editor-action medium-editor-action-color" data-action="color" data-element="span">C</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-anchor" data-action="anchor" data-element="a">#</button></li>' +
+                '    <li><button class="medium-editor-action medium-editor-action-anchor" data-action="ref" data-element="a">*</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-header1" data-action="append-' + this.options.firstHeader + '" data-element="' + this.options.firstHeader + '">' + this.options.firstHeader + '</button></li>' +
                 // '    <li><button class="medium-editor-action medium-editor-action-header2" data-action="append-' + this.options.secondHeader + '" data-element="' + this.options.secondHeader + '">' + this.options.secondHeader + '</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>' +
@@ -175,6 +178,9 @@ if (window.module !== undefined) {
                 '    <label class="medium-editor-color medium-editor-color-purple">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="4" data-forecolor="rgb(103, 64, 135)" data-bgcolor="#F6EBFF"></label>'+
                 '    <label class="medium-editor-color medium-editor-color-pink">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="5" data-forecolor="rgb(255, 243, 245)" data-bgcolor="#FFF3F5"></label>'+
                 '    <a href="javascript:void(0)" class="medium-editor-color-close">&times;</a>' +
+                '</div>'+
+                '<div class="medium-editor-toolbar-form-ref" id="medium-editor-toolbar-form-ref">' +
+                '    <input type="text" value="" placeholder="' + this.options.refInputPlaceholder + '"><a href="javascript:void(0)">&times;</a>' +
                 '</div>';
         },
 
@@ -183,6 +189,7 @@ if (window.module !== undefined) {
             this.keepToolbarAlive = false;
             this.anchorForm = this.toolbar.querySelector('.medium-editor-toolbar-form-anchor');
             this.colorForm = this.toolbar.querySelector('.medium-editor-toolbar-form-color');
+            this.refForm = this.toolbar.querySelector('.medium-editor-toolbar-form-ref');
             this.toolbarActions = this.toolbar.querySelector('.medium-editor-toolbar-actions');
             return this;
         },
@@ -321,20 +328,27 @@ if (window.module !== undefined) {
         },
 
         activateButton: function (tag, fg) {
-            var el, klass = 'medium-editor-button-active';
-            if (fg !== undefined && fg !== null)
-            {
-                el = this.toolbar.querySelector('[data-forecolor="' + fg + '"]');
-                el = el.parentNode;
-                klass = 'medium-editor-color-active';
-            } else if (fg === null) {
-                el = this.toolbar.querySelector('[data-forecolor="' + fg + '"]');
-                klass = 'medium-editor-color-active';
+            var el, subEl, klass, subKlass;
+            if (fg !== undefined ) {
+                if (fg === null) {
+                    subEl = this.toolbar.querySelector('[value="0"]');
+                } else {
+                    subEl = this.toolbar.querySelector('[data-forecolor="' + fg + '"]');
+                }
+                subEl = subEl.parentNode;
+                subKlass = 'medium-editor-color-active';
+
+                el = this.toolbar.querySelector('[data-action="color"]');
+
             } else {
-                el = this.toolbar.querySelector('[value="0"]');
+                el = this.toolbar.querySelector('[data-element="' + tag + '"]');
+                klass = 'medium-editor-button-active';
             }
             if (el !== null && el.className.indexOf(klass) === -1) {
-                el.className += ' '+klass;
+                el.className += ' ' + klass;
+            }
+            if (subEl && subEl.className.indexOf(subKlass) === -1) {
+                subEl.className += ' ' + subKlass;
             }
         },
 
@@ -369,6 +383,10 @@ if (window.module !== undefined) {
                 triggerAction = function (e) {
                     e.preventDefault();
                     e.stopPropagation();
+                    var colors = self.toolbar.querySelectorAll('.medium-editor-color');
+                    for (i = 0; i < colors.length; i += 1) {
+                        colors[i].classList.remove('medium-editor-color-active');
+                    }
                     if (self.selection === undefined) {
                         self.checkSelection(e);
                     }
@@ -401,6 +419,8 @@ if (window.module !== undefined) {
                 this.triggerAnchorAction(e);
             } else if (action === 'color') {
                 this.triggerColorAction(e);
+            } else if (action === 'ref') {
+                this.triggerRefAction(e);
             } else {
                 document.execCommand(action, null, false);
                 this.notify();  
@@ -418,6 +438,7 @@ if (window.module !== undefined) {
                 document.execCommand('useCSS',false,false);
                 document.execCommand(command,false,backcolor);
                 document.execCommand(clrCommand,false,forecolor);
+                this.savedSelection = saveSelection();
             }
             else
             {
@@ -425,8 +446,8 @@ if (window.module !== undefined) {
                 document.execCommand("removeFormat",false,command);
                 document.execCommand("removeFormat",false,clrCommand);
             }
-            this.notify();
             this.setToolbarPosition();
+            this.notify();
         },
 
         triggerAnchorAction: function () {
@@ -443,15 +464,35 @@ if (window.module !== undefined) {
             return this;
         },
 
-        triggerColorAction: function () {
+        triggerRefAction: function () {
             if (this.selection.anchorNode.parentNode.tagName.toLowerCase() === 'a') {
                 document.execCommand('unlink', null, false);
+                this.notify();
+            } else {
+                if (this.refForm.style.display === 'block') {
+                    this.showToolbarActions();
+                } else {
+                    this.showRefForm();
+                }
+            }
+            return this;
+        },
+
+        triggerColorAction: function () {
+            if (false) {
+                var ie = navigator.appName === 'Microsoft Internet Explorer';
+                var clrCommand = (ie ? "ForeColor" : "foreColor");
+                var command = (ie ? "HiliteColor" : "hiliteColor");
+                document.execCommand('useCSS',false,false);
+                document.execCommand("removeFormat",false,command);
+                document.execCommand("removeFormat",false,clrCommand);
                 this.notify();
             } else {
                 if (this.colorForm.style.display === 'block') {
                     this.showToolbarActions();
                 } else {
                     this.showColorForm();
+                    this.setToolbarPosition();
                 }
             }
             return this;
@@ -523,6 +564,7 @@ if (window.module !== undefined) {
                 timer;
             this.anchorForm.style.display = 'none';
             this.colorForm.style.display = 'none';
+            this.refForm.style.display = 'none';
             this.toolbarActions.style.display = 'block';
             this.keepToolbarAlive = false;
             clearTimeout(timer);
@@ -536,6 +578,16 @@ if (window.module !== undefined) {
             this.toolbarActions.style.display = 'none';
             this.savedSelection = saveSelection();
             this.anchorForm.style.display = 'block';
+            this.keepToolbarAlive = true;
+            input.focus();
+            input.value = '';
+        },
+
+        showRefForm: function () {
+            var input = this.refForm.querySelector('input');
+            this.toolbarActions.style.display = 'none';
+            this.savedSelection = saveSelection();
+            this.refForm.style.display = 'block';
             this.keepToolbarAlive = true;
             input.focus();
             input.value = '';
@@ -570,6 +622,27 @@ if (window.module !== undefined) {
             return this;
         },
 
+        bindRefForm: function () {
+            var input = this.refForm.querySelector('input'),
+                linkCancel = this.refForm.querySelector('a'),
+                self = this;
+            this.refForm.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+            input.addEventListener('keyup', function (e) {
+                if (e.keyCode === 13) {
+                    e.preventDefault();
+                    self.createRef(this);
+                }
+            });
+            linkCancel.addEventListener('click', function (e) {
+                e.preventDefault();
+                self.showToolbarActions();
+                restoreSelection(self.savedSelection);
+            });
+            return this;
+        },
+
         bindColorForm: function () {
             var input = this.colorForm.querySelector('input'),
                 linkCancel = this.colorForm.querySelector('a'),
@@ -588,6 +661,14 @@ if (window.module !== undefined) {
         createLink: function (input) {
             restoreSelection(this.savedSelection);
             document.execCommand('createLink', false, input.value);
+            this.notify()
+            this.showToolbarActions();
+            input.value = '';
+        },
+
+        createRef: function (input) {
+            restoreSelection(this.savedSelection);
+            document.execCommand('insertHTML', false, '<a href="javascript:void(0)" class="link-ref" data-ref-="'+input.value+'">' + this.savedSelection.toString() + "</a>");
             this.notify()
             this.showToolbarActions();
             input.value = '';
