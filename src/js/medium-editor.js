@@ -65,6 +65,7 @@ if (window.module !== undefined) {
     MediumEditor.prototype = {
         defaults: {
             anchorInputPlaceholder: 'Paste or type a link',
+            refInputPlaceholder: 'Add a note',
             delay: 0,
             diffLeft: 0,
             diffTop: -10,
@@ -162,7 +163,7 @@ if (window.module !== undefined) {
                 '    <li><button class="medium-editor-action medium-editor-action-strikeThrough" data-action="strikeThrough" data-element="s">S</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-color" data-action="color" data-element="span">C</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-anchor" data-action="anchor" data-element="a">#</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-anchor" data-action="ref" data-element="a">*</button></li>' +
+                '    <li><button class="medium-editor-action medium-editor-action-ref" data-action="ref" data-element="a">*</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-header1" data-action="append-' + this.options.firstHeader + '" data-element="' + this.options.firstHeader + '">' + this.options.firstHeader + '</button></li>' +
                 // '    <li><button class="medium-editor-action medium-editor-action-header2" data-action="append-' + this.options.secondHeader + '" data-element="' + this.options.secondHeader + '">' + this.options.secondHeader + '</button></li>' +
                 '    <li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>' +
@@ -171,12 +172,12 @@ if (window.module !== undefined) {
                 '    <input type="text" value="" placeholder="' + this.options.anchorInputPlaceholder + '"><a href="javascript:void(0)">&times;</a>' +
                 '</div>' +
                 '<div class="medium-editor-toolbar-form-color" id="medium-editor-toolbar-form-color">' +
-                '    <label class="medium-editor-color medium-editor-color-default">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="0" data-forecolor="rgb(64, 64, 64)" data-bgcolor="transparent"></label>'+
-                '    <label class="medium-editor-color medium-editor-color-yellow">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="1" data-forecolor="rgb(141, 86, 0)" data-bgcolor="#FFFFc1"></label>'+
-                '    <label class="medium-editor-color medium-editor-color-lime">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="2" data-forecolor="rgb(5, 104, 0)" data-bgcolor="#E4FFE0"></label>'+
-                '    <label class="medium-editor-color medium-editor-color-blue">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="3" data-forecolor="rgb(0, 88, 163)" data-bgcolor="#E8F9FF"></label>'+
-                '    <label class="medium-editor-color medium-editor-color-purple">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="4" data-forecolor="rgb(103, 64, 135)" data-bgcolor="#F6EBFF"></label>'+
-                '    <label class="medium-editor-color medium-editor-color-pink">C<input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="5" data-forecolor="rgb(255, 243, 245)" data-bgcolor="#FFF3F5"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-default"><input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="0" data-forecolor="rgb(64, 64, 64)" data-bgcolor="transparent"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-yellow"><input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="1" data-forecolor="rgb(141, 86, 0)" data-bgcolor="#FFFFc1"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-lime"><input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="2" data-forecolor="rgb(5, 104, 0)" data-bgcolor="#E4FFE0"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-blue"><input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="3" data-forecolor="rgb(0, 88, 163)" data-bgcolor="#E8F9FF"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-purple"><input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="4" data-forecolor="rgb(103, 64, 135)" data-bgcolor="#F6EBFF"></label>'+
+                '    <label class="medium-editor-color medium-editor-color-pink"><input type="radio" name="medium-editor-color-radio" class="medium-editor-color-radio" value="5" data-forecolor="rgb(255, 243, 245)" data-bgcolor="#FFF3F5"></label>'+
                 '    <a href="javascript:void(0)" class="medium-editor-color-close">&times;</a>' +
                 '</div>'+
                 '<div class="medium-editor-toolbar-form-ref" id="medium-editor-toolbar-form-ref">' +
@@ -668,7 +669,10 @@ if (window.module !== undefined) {
 
         createRef: function (input) {
             restoreSelection(this.savedSelection);
-            document.execCommand('insertHTML', false, '<a href="javascript:void(0)" class="link-ref" data-ref-="'+input.value+'">' + this.savedSelection.toString() + "</a>");
+            // src http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript
+            var guid = Math.floor((1 + Math.random()) * 0x10000)
+             .toString(16);
+            document.execCommand('insertHTML', false, '<a href="javascript:void(0)" data-ref-id="'+guid+'" class="link-ref" data-ref="'+input.value+'">' + this.savedSelection.toString() + "</a>");
             this.notify()
             this.showToolbarActions();
             input.value = '';
