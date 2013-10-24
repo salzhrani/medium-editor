@@ -71,12 +71,12 @@ if (window.module !== undefined) {
             diffTop: -10,
             disableReturn: false,
             disableToolbar: false,
-            excludedActions: [],
             firstHeader: 'h3',
             forcePlainText: true,
             placeholder: 'Type your text',
             secondHeader: 'h4',
-            active: true
+            active: true,
+            buttons: ['bold', 'italic', 'underline', 'strikeThrough', 'color', 'anchor', 'ref', 'header1', 'quote']
         },
 
         init: function (elements, options) {
@@ -153,21 +153,37 @@ if (window.module !== undefined) {
                 }
             });
         },
+        buttonTemplate: function(btnType) {
+            var buttonTemplates = {
+                'bold': '<li><button class="medium-editor-action medium-editor-action-bold" data-action="bold" data-element="b">B</button></li>',
+                'italic': '<li><button class="medium-editor-action medium-editor-action-italic" data-action="italic" data-element="i">I</button></li>',
+                'underline': '<li><button class="medium-editor-action medium-editor-action-underline" data-action="underline" data-element="u">U</button></li>',
+                'anchor': '<li><button class="medium-editor-action medium-editor-action-anchor" data-action="anchor" data-element="a">#</button></li>',
+                'header1': '<li><button class="medium-editor-action medium-editor-action-header1" data-action="append-' + this.options.firstHeader + '" data-element="' + this.options.firstHeader + '">'+this.options.firstHeader+'</button></li>',
+                'header2': '<li><button class="medium-editor-action medium-editor-action-header2" data-action="append-' + this.options.secondHeader + '" data-element="' + this.options.secondHeader + '">'+this.options.secondHeader+'</button></li>',
+                'quote': '<li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>',
+                'color': '<li><button class="medium-editor-action medium-editor-action-color" data-action="color" data-element="span">C</button></li>',
+                'strikeThrough': '<li><button class="medium-editor-action medium-editor-action-strikeThrough" data-action="strikeThrough" data-element="s">S</button></li>',
+                'ref': '<li><button class="medium-editor-action medium-editor-action-ref" data-action="ref" data-element="a">*</button></li>'
+            };
+            return buttonTemplates[btnType];
+        },
 
-        //TODO: actionTemplate colors: [["transparent","rgb(64, 64, 64)"], ["#FFFFc1",'rgb(141, 86, 0)'], ["#E4FFE0","rgb(5, 104, 0)"], ["#E8F9FF",'rgb(0, 88, 163)'],["#F6EBFF",'rgb(103, 64, 135)'],["#FFF3F5","rgb(255, 243, 245)"]],
+        //TODO: actionTemplate
         toolbarTemplate: function () {
-            return '<ul id="medium-editor-toolbar-actions" class="medium-editor-toolbar-actions clearfix">' +
-                '    <li><button class="medium-editor-action medium-editor-action-bold" data-action="bold" data-element="b">B</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-italic" data-action="italic" data-element="i">I</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-underline" data-action="underline" data-element="u">U</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-strikeThrough" data-action="strikeThrough" data-element="s">S</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-color" data-action="color" data-element="span">C</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-anchor" data-action="anchor" data-element="a">#</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-ref" data-action="ref" data-element="a">*</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-header1" data-action="append-' + this.options.firstHeader + '" data-element="' + this.options.firstHeader + '">' + this.options.firstHeader + '</button></li>' +
-                // '    <li><button class="medium-editor-action medium-editor-action-header2" data-action="append-' + this.options.secondHeader + '" data-element="' + this.options.secondHeader + '">' + this.options.secondHeader + '</button></li>' +
-                '    <li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>' +
-                '</ul>' +
+            var btns = this.options.buttons,
+                html = '<ul id="medium-editor-toolbar-actions" class="medium-editor-toolbar-actions clearfix">',
+                i,
+                iBtn;
+
+            for (i = 0; i < btns.length; i += 1) {
+                iBtn = btns[i];
+
+                if (this.defaults.buttons.indexOf(iBtn) > -1) {
+                    html += this.buttonTemplate(iBtn);
+                }
+            }
+            html += '</ul>' +
                 '<div class="medium-editor-toolbar-form-anchor" id="medium-editor-toolbar-form-anchor">' +
                 '    <input type="text" value="" placeholder="' + this.options.anchorInputPlaceholder + '"><a href="javascript:void(0)">&times;</a>' +
                 '</div>' +
@@ -183,6 +199,7 @@ if (window.module !== undefined) {
                 '<div class="medium-editor-toolbar-form-ref" id="medium-editor-toolbar-form-ref">' +
                 '    <input type="text" value="" placeholder="' + this.options.refInputPlaceholder + '"><a href="javascript:void(0)">&times;</a>' +
                 '</div>';
+            return html;
         },
 
         initToolbar: function () {
@@ -225,6 +242,8 @@ if (window.module !== undefined) {
 
         checkSelection: function () {
             var newSelection;
+            if(this.getSelectionElement().getAttribute('data-disable-toolbar') || this.options.disableToolbar)
+                return this;
             if (this.keepToolbarAlive !== true) {
                 newSelection = window.getSelection();
                 if (newSelection.toString().trim() === '') {
@@ -289,7 +308,6 @@ if (window.module !== undefined) {
                 i;
             for (i = 0; i < buttons.length; i += 1) {
                 buttons[i].classList.remove('medium-editor-button-active');
-                this.showHideButton(buttons[i]);
             }
             var colors = this.toolbar.querySelectorAll('.medium-editor-color');
             for (i = 0; i < colors.length; i += 1) {
@@ -298,14 +316,6 @@ if (window.module !== undefined) {
             }
             this.checkActiveButtons();
             return this;
-        },
-
-        showHideButton: function (button) {
-            if (this.options.excludedActions.indexOf(button.getAttribute('data-element')) > -1) {
-                button.style.display = 'none';
-            } else {
-                button.style.display = 'block';
-            }
         },
 
         checkActiveButtons: function () {
@@ -719,7 +729,8 @@ if (window.module !== undefined) {
                 return;
             }
             this.isActive = false;
-            this.toolbar.style.display = 'none';
+            if(this.toolbar)
+                this.toolbar.style.display = 'none';
             for (i = 0; i < this.elements.length; i += 1) {
                 this.elements[i].removeEventListener('mouseup', this.checkSelectionWrapper);
                 this.elements[i].removeEventListener('keyup', this.checkSelectionWrapper);
