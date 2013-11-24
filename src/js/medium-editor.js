@@ -755,7 +755,7 @@ if (window.module !== undefined) {
             }
             var i;
             for (i = 0; i < this.elements.length; i += 1) {
-                this.elements[i].addEventListener('paste', this.pasteWrapper);
+                this.elements[i].addEventListener('paste', this.pasteWrapper.bind(this));
             }
             return this;
         },
