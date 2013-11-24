@@ -60,6 +60,31 @@ if (window.module !== undefined) {
         return startNode;
     }
 
+    // http://stackoverflow.com/questions/4176923/html-of-selected-text
+    // by Tim Down
+    function getSelectionHtml() {
+        var i,
+            html = "",
+            sel,
+            len,
+            container;
+        if (window.getSelection !== undefined) {
+            sel = window.getSelection();
+            if (sel.rangeCount) {
+                container = document.createElement("div");
+                for (i = 0, len = sel.rangeCount; i < len; i += 1) {
+                    container.appendChild(sel.getRangeAt(i).cloneContents());
+                }
+                html = container.innerHTML;
+            }
+        } else if (document.selection !== undefined) {
+            if (document.selection.type === "Text") {
+                html = document.selection.createRange().htmlText;
+            }
+        }
+        return html;
+    }
+
     MediumEditor.prototype = {
         defaults: {
             anchorInputPlaceholder: 'Paste or type a link',
@@ -70,6 +95,7 @@ if (window.module !== undefined) {
             disableToolbar: false,
             firstHeader: 'h3',
             forcePlainText: true,
+            allowMultiParagraphSelection: true,
             placeholder: 'Type your text',
             secondHeader: 'h4',
             buttons: ['bold', 'italic', 'underline', 'anchor', 'header1', 'header2', 'quote']
@@ -85,13 +111,15 @@ if (window.module !== undefined) {
             this.id = document.querySelectorAll('.medium-editor-toolbar').length + 1;
             this.options = extend(options, this.defaults);
             return this.initElements()
+                       .bindSelect()
                        .bindPaste()
                        .setPlaceholders()
                        .bindWindowActions();
         },
 
         initElements: function () {
-            var i;
+            var i,
+                addToolbar = false;
             for (i = 0; i < this.elements.length; i += 1) {
                 this.elements[i].setAttribute('contentEditable', true);
                 if (!this.elements[i].getAttribute('data-placeholder')) {
@@ -100,11 +128,14 @@ if (window.module !== undefined) {
                 this.elements[i].setAttribute('data-medium-element', true);
                 this.bindParagraphCreation(i).bindReturn(i);
                 if (!this.options.disableToolbar && !this.elements[i].getAttribute('data-disable-toolbar')) {
-                    this.initToolbar()
-                        .bindSelect()
-                        .bindButtons()
-                        .bindAnchorForm();
+                    addToolbar = true;
                 }
+            }
+            // Init toolbar
+            if (addToolbar) {
+                this.initToolbar()
+                    .bindButtons()
+                    .bindAnchorForm();
             }
             return this;
         },
@@ -112,16 +143,20 @@ if (window.module !== undefined) {
         bindParagraphCreation: function (index) {
             var self = this;
             this.elements[index].addEventListener('keyup', function (e) {
-                var node = getSelectionStart();
-                if (node && node.getAttribute('data-medium-element') && node.children.length === 0) {
+                var node = getSelectionStart(),
+                    tagName;
+                if (node && node.getAttribute('data-medium-element') && node.children.length === 0
+                        && !(self.options.disableReturn || node.getAttribute('data-disable-return'))) {
                     document.execCommand('formatBlock', false, 'p');
                 }
                 if (e.which === 13 && !e.shiftKey) {
-                    if (!(self.options.disableReturn || this.getAttribute('data-disable-return'))) {
+                    node = getSelectionStart();
+                    tagName = node.tagName.toLowerCase();
+                    if (!(self.options.disableReturn || this.getAttribute('data-disable-return'))
+                            && tagName !== 'li') {
                         document.execCommand('formatBlock', false, 'p');
-                        node = getSelectionStart();
-                        if (node.tagName.toLowerCase() === 'a') {
-                            document.execCommand('unlink', null, false);
+                        if (tagName === 'a') {
+                            document.execCommand('unlink', false, null);
                         }
                     }
                 }
@@ -145,12 +180,16 @@ if (window.module !== undefined) {
                 'bold': '<li><button class="medium-editor-action medium-editor-action-bold" data-action="bold" data-element="b">B</button></li>',
                 'italic': '<li><button class="medium-editor-action medium-editor-action-italic" data-action="italic" data-element="i">I</button></li>',
                 'underline': '<li><button class="medium-editor-action medium-editor-action-underline" data-action="underline" data-element="u">U</button></li>',
+                'superscript': '<li><button class="medium-editor-action medium-editor-action-superscript" data-action="superscript" data-element="sup">x<sup>1</sup></button></li>',
+                'subscript': '<li><button class="medium-editor-action medium-editor-action-subscript" data-action="subscript" data-element="sub">x<sub>1</sup></button></li>',
                 'anchor': '<li><button class="medium-editor-action medium-editor-action-anchor" data-action="anchor" data-element="a">#</button></li>',
                 'header1': '<li><button class="medium-editor-action medium-editor-action-header1" data-action="append-' + this.options.firstHeader + '" data-element="' + this.options.firstHeader + '">h1</button></li>',
                 'header2': '<li><button class="medium-editor-action medium-editor-action-header2" data-action="append-' + this.options.secondHeader + '" data-element="' + this.options.secondHeader + '">h2</button></li>',
-                'quote': '<li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>'
+                'quote': '<li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>',
+                'orderedlist': '<li><button class="medium-editor-action medium-editor-action-orderedlist" data-action="insertorderedlist" data-element="ol">1.</button></li>',
+                'unorderedlist': '<li><button class="medium-editor-action medium-editor-action-unorderedlist" data-action="insertunorderedlist" data-element="ul">&bull;</button></li>'
             };
-            return buttonTemplates[btnType];
+            return buttonTemplates[btnType] || false;
         },
 
         //TODO: actionTemplate
@@ -158,26 +197,30 @@ if (window.module !== undefined) {
             var btns = this.options.buttons,
                 html = '<ul id="medium-editor-toolbar-actions" class="medium-editor-toolbar-actions clearfix">',
                 i,
-                iBtn;
+                tpl;
 
             for (i = 0; i < btns.length; i += 1) {
-                iBtn = btns[i];
-
-                if (this.defaults.buttons.indexOf(iBtn) > -1) {
-                    html += this.buttonTemplate(iBtn);
+                tpl = this.buttonTemplate(btns[i]);
+                if (tpl) {
+                    html += tpl;
                 }
             }
             html += '</ul>' +
                 '<div class="medium-editor-toolbar-form-anchor" id="medium-editor-toolbar-form-anchor">' +
-                '    <input type="text" value="" placeholder="' + this.options.anchorInputPlaceholder + '"><a href="#">&times;</a>' +
+                '    <input type="text" value="" placeholder="' + this.options.anchorInputPlaceholder + '">' +
+                '    <a href="#">&times;</a>' +
                 '</div>';
             return html;
         },
 
         initToolbar: function () {
+            if (this.toolbar) {
+                return this;
+            }
             this.toolbar = this.createToolbar();
             this.keepToolbarAlive = false;
             this.anchorForm = this.toolbar.querySelector('.medium-editor-toolbar-form-anchor');
+            this.anchorInput = this.anchorForm.querySelector('input');
             this.toolbarActions = this.toolbar.querySelector('.medium-editor-toolbar-actions');
             return this;
         },
@@ -201,27 +244,48 @@ if (window.module !== undefined) {
                     self.checkSelection(e);
                 }, self.options.delay);
             };
+
+            document.documentElement.addEventListener('mouseup', this.checkSelectionWrapper);
+
             for (i = 0; i < this.elements.length; i += 1) {
-                this.elements[i].addEventListener('mouseup', this.checkSelectionWrapper);
                 this.elements[i].addEventListener('keyup', this.checkSelectionWrapper);
+                this.elements[i].addEventListener('blur', this.checkSelectionWrapper);
             }
             return this;
         },
 
         checkSelection: function () {
-            var newSelection;
-            if (this.keepToolbarAlive !== true) {
+            var i,
+                newSelection,
+                hasMultiParagraphs,
+                selectionHtml,
+                selectionElement;
+            if (this.keepToolbarAlive !== true && !this.options.disableToolbar) {
                 newSelection = window.getSelection();
-                if (newSelection.toString().trim() === '') {
-                    this.toolbar.style.display = 'none';
+                selectionHtml = getSelectionHtml();
+                selectionHtml = selectionHtml.replace(/<[\S]+><\/[\S]+>/gim, '');
+                // Check if selection is between multi paragraph <p>.
+                hasMultiParagraphs = selectionHtml.match(/<(p|h[0-6]|blockquote)>([\s\S]*?)<\/(p|h[0-6]|blockquote)>/g);
+                hasMultiParagraphs = hasMultiParagraphs ? hasMultiParagraphs.length : 0;
+                if (newSelection.toString().trim() === ''
+                        || (this.options.allowMultiParagraphSelection === false && hasMultiParagraphs)) {
+                    this.hideToolbarActions();
                 } else {
-                    this.selection = newSelection;
-                    this.selectionRange = this.selection.getRangeAt(0);
-                    if (!this.getSelectionElement().getAttribute('data-disable-toolbar')) {
-                        this.toolbar.style.display = 'block';
-                        this.setToolbarButtonStates()
-                            .setToolbarPosition()
-                            .showToolbarActions();
+                    selectionElement = this.getSelectionElement();
+                    if (!selectionElement || selectionElement.getAttribute('data-disable-toolbar')) {
+                        this.hideToolbarActions();
+                    } else {
+                        this.selection = newSelection;
+                        this.selectionRange = this.selection.getRangeAt(0);
+                        for (i = 0; i < this.elements.length; i += 1) {
+                            if (this.elements[i] === selectionElement) {
+                                this.setToolbarButtonStates()
+                                    .setToolbarPosition()
+                                    .showToolbarActions();
+                                return;
+                            }
+                        }
+                        this.hideToolbarActions();
                     }
                 }
             }
@@ -231,15 +295,32 @@ if (window.module !== undefined) {
         getSelectionElement: function () {
             var selection = window.getSelection(),
                 range = selection.getRangeAt(0),
-                parent = range.commonAncestorContainer.parentNode;
+                current = range.commonAncestorContainer,
+                parent = current.parentNode,
+                result,
+                getMediumElement = function(e) {
+                    var parent = e;
+                    try {
+                        while (!parent.getAttribute('data-medium-element')) {
+                            parent = parent.parentNode;
+                        }
+                    } catch (errb) {
+                        return false;
+                    }
+                    return parent;
+                };
+            // First try on current node
             try {
-                while (!parent.getAttribute('data-medium-element')) {
-                    parent = parent.parentNode;
+                if (current.getAttribute('data-medium-element')) {
+                    result = current;
+                } else {
+                    result = getMediumElement(parent);
                 }
+            // If not search in the parent nodes.
             } catch (err) {
-                return this.elements[0];
+                result = getMediumElement(parent);
             }
-            return parent;
+            return result;
         },
 
         setToolbarPosition: function () {
@@ -335,14 +416,14 @@ if (window.module !== undefined) {
             } else if (action === 'anchor') {
                 this.triggerAnchorAction(e);
             } else {
-                document.execCommand(action, null, false);
+                document.execCommand(action, false, null);
                 this.setToolbarPosition();
             }
         },
 
         triggerAnchorAction: function () {
             if (this.selection.anchorNode.parentNode.tagName.toLowerCase() === 'a') {
-                document.execCommand('unlink', null, false);
+                document.execCommand('unlink', false, null);
             } else {
                 if (this.anchorForm.style.display === 'block') {
                     this.showToolbarActions();
@@ -358,7 +439,8 @@ if (window.module !== undefined) {
             // FF handles blockquote differently on formatBlock
             // allowing nesting, we need to use outdent
             // https://developer.mozilla.org/en-US/docs/Rich-Text_Editing_in_Mozilla
-            if (el === 'blockquote' && selectionData.el.parentNode.tagName.toLowerCase() === 'blockquote') {
+            if (el === 'blockquote' && selectionData.el
+                    && selectionData.el.parentNode.tagName.toLowerCase() === 'blockquote') {
                 return document.execCommand('outdent', false, null);
             }
             if (selectionData.tagName === el) {
@@ -405,45 +487,49 @@ if (window.module !== undefined) {
             });
         },
 
+        hideToolbarActions: function () {
+            this.keepToolbarAlive = false;
+            this.toolbar.classList.remove('medium-editor-toolbar-active');
+        },
+
         showToolbarActions: function () {
             var self = this,
-                timeoutWrapper = function () {
-                    self.keepToolbarAlive = false;
-                    self.toolbar.style.display = 'none';
-                    document.removeEventListener('click', timeoutWrapper);
-                },
                 timer;
             this.anchorForm.style.display = 'none';
             this.toolbarActions.style.display = 'block';
             this.keepToolbarAlive = false;
             clearTimeout(timer);
-            timer = setTimeout(function () {
-                document.addEventListener('click', timeoutWrapper);
-            }, 300);
+            timer = setTimeout(function() {
+                if (!self.toolbar.classList.contains('medium-editor-toolbar-active')) {
+                    self.toolbar.classList.add('medium-editor-toolbar-active');
+                }
+            }, 100);
         },
 
         showAnchorForm: function () {
-            var input = this.anchorForm.querySelector('input');
             this.toolbarActions.style.display = 'none';
             this.savedSelection = saveSelection();
             this.anchorForm.style.display = 'block';
             this.keepToolbarAlive = true;
-            input.focus();
-            input.value = '';
+            this.anchorInput.focus();
+            this.anchorInput.value = '';
         },
 
         bindAnchorForm: function () {
-            var input = this.anchorForm.querySelector('input'),
-                linkCancel = this.anchorForm.querySelector('a'),
+            var linkCancel = this.anchorForm.querySelector('a'),
                 self = this;
             this.anchorForm.addEventListener('click', function (e) {
                 e.stopPropagation();
             });
-            input.addEventListener('keyup', function (e) {
+            this.anchorInput.addEventListener('keyup', function (e) {
                 if (e.keyCode === 13) {
                     e.preventDefault();
                     self.createLink(this);
                 }
+            });
+            this.anchorInput.addEventListener('blur', function (e) {
+                self.keepToolbarAlive = false;
+                self.checkSelection();
             });
             linkCancel.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -466,7 +552,9 @@ if (window.module !== undefined) {
             window.addEventListener('resize', function () {
                 clearTimeout(timerResize);
                 timerResize = setTimeout(function () {
-                    self.setToolbarPosition();
+                    if (self.toolbar.classList.contains('medium-editor-toolbar-active')) {
+                        self.setToolbarPosition();
+                    }
                 }, 100);
             });
             return this;
@@ -477,6 +565,11 @@ if (window.module !== undefined) {
             if (this.isActive) {
                 return;
             }
+
+            if (this.toolbar !== undefined) {
+                this.toolbar.style.display = 'block';
+            }
+
             this.isActive = true;
             for (i = 0; i < this.elements.length; i += 1) {
                 this.elements[i].setAttribute('contentEditable', true);
@@ -490,10 +583,16 @@ if (window.module !== undefined) {
                 return;
             }
             this.isActive = false;
-            this.toolbar.style.display = 'none';
+
+            if (this.toolbar !== undefined) {
+                this.toolbar.style.display = 'none';
+            }
+
+            document.documentElement.removeEventListener('mouseup', this.checkSelectionWrapper);
+
             for (i = 0; i < this.elements.length; i += 1) {
-                this.elements[i].removeEventListener('mouseup', this.checkSelectionWrapper);
                 this.elements[i].removeEventListener('keyup', this.checkSelectionWrapper);
+                this.elements[i].removeEventListener('blur', this.checkSelectionWrapper);
                 this.elements[i].removeAttribute('contentEditable');
             }
         },
@@ -503,6 +602,7 @@ if (window.module !== undefined) {
                 return;
             }
             var i,
+                self = this,
                 pasteWrapper = function (e) {
                     var paragraphs,
                         html = '',
@@ -510,11 +610,17 @@ if (window.module !== undefined) {
                     e.target.classList.remove('medium-editor-placeholder');
                     if (e.clipboardData && e.clipboardData.getData) {
                         e.preventDefault();
-                        paragraphs = e.clipboardData.getData('text/plain').split(/[\r\n]/g);
-                        for (p = 0; p < paragraphs.length; p += 1) {
-                            html += '<p>' + paragraphs[p] + '</p>';
+                        if (!self.options.disableReturn) {
+                            paragraphs = e.clipboardData.getData('text/plain').split(/[\r\n]/g);
+                            for (p = 0; p < paragraphs.length; p += 1) {
+                                if (paragraphs[p] !== "") {
+                                    html += '<p>' + paragraphs[p] + '</p>';
+                                }
+                            }
+                            document.execCommand('insertHTML', false, html);
+                        } else {
+                            document.execCommand('insertHTML', false, e.clipboardData.getData('text/plain'));
                         }
-                        document.execCommand('insertHTML', false, html);
                     }
                 };
             for (i = 0; i < this.elements.length; i += 1) {

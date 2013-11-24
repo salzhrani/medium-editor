@@ -1,4 +1,54 @@
-1.1.5 / 2013-10-13
+1.3.1 / 2013-11-19
+==================
+
+* Fixes toolbar binding button issue with multi-editor mode
+
+
+1.3.0 / 2013-11-18
+==================
+
+* Fixes data-disable-return not preventing paragraph creation
+* Improves getSelectionElement() to work in any case
+* Fixes multi element selection bug
+* Fixes Issues #88 & #89
+* Improves binding for multiple editor instance, checkSelection() is called only once per instance
+* Improves allowMultiParagraphSelection filter by removing empty tags elements before counting
+* Considers header tags has a paragraph too (same as medium)
+
+
+1.2.2 / 2013-11-07
+==================
+
+* Removes blur event listener when disabling the toolbar
+* Adds a light gradient opacity to the toolbar
+* Fixes bug that would keep toolbar alive when moving out of the anchor input
+
+
+1.2.1 / 2013-11-07
+==================
+
+* Fixes empty selectionNode.el bug
+* Prevents toolbar opening when changing to selection elements
+  with the toolbar disabled
+* Adds a transition to the toolbar when moving across elements
+
+
+1.2.0 / 2013-11-06
+==================
+
+* Fixes issue on deactivation without enabled toolbar
+* Fixes checkSelection error when disableToolbar option is enabled
+* Adds new option to disable multiple paragraph selection
+* Prevents paragraph creation on paste when disableReturn is set to true
+
+
+1.1.6 / 2013-10-24
+==================
+
+* Adds extra buttons: superscript, subscript, ordered list and unordered list
+
+
+1.1.5 / 2013-10-23
 ==================
 
 * Changes buttons blacklist to whitelist

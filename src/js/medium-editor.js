@@ -62,6 +62,31 @@ if (window.module !== undefined) {
         return startNode;
     }
 
+    // http://stackoverflow.com/questions/4176923/html-of-selected-text
+    // by Tim Down
+    function getSelectionHtml() {
+        var i,
+            html = "",
+            sel,
+            len,
+            container;
+        if (window.getSelection !== undefined) {
+            sel = window.getSelection();
+            if (sel.rangeCount) {
+                container = document.createElement("div");
+                for (i = 0, len = sel.rangeCount; i < len; i += 1) {
+                    container.appendChild(sel.getRangeAt(i).cloneContents());
+                }
+                html = container.innerHTML;
+            }
+        } else if (document.selection !== undefined) {
+            if (document.selection.type === "Text") {
+                html = document.selection.createRange().htmlText;
+            }
+        }
+        return html;
+    }
+
     MediumEditor.prototype = {
         defaults: {
             anchorInputPlaceholder: 'Paste or type a link',
@@ -89,13 +114,15 @@ if (window.module !== undefined) {
             this.options = extend(options, this.defaults);
             this.isActive =  this.options.active;
             return this.initElements()
+                       .bindSelect()
                        .bindPaste()
                        .setPlaceholders()
                        .bindWindowActions();
         },
 
         initElements: function () {
-            var i;
+            var i,
+                addToolbar = false;
             for (i = 0; i < this.elements.length; i += 1) {
                 if (this.isActive) {
                     this.elements[i].setAttribute('contentEditable', true);
@@ -110,6 +137,10 @@ if (window.module !== undefined) {
                 this.elements[i].setAttribute('data-medium-element', true);
                 this.bindParagraphCreation(i).bindReturn(i);
                 if (!this.options.disableToolbar && !this.elements[i].getAttribute('data-disable-toolbar')) {
+                    addToolbar = true;
+                }
+
+                if(addToolbar) {
                     this.initToolbar()
                         .bindSelect()
                         .bindButtons()
@@ -164,9 +195,11 @@ if (window.module !== undefined) {
                 'quote': '<li><button class="medium-editor-action medium-editor-action-quote" data-action="append-blockquote" data-element="blockquote">&ldquo;</button></li>',
                 'color': '<li><button class="medium-editor-action medium-editor-action-color" data-action="color" data-element="span">C</button></li>',
                 'strikeThrough': '<li><button class="medium-editor-action medium-editor-action-strikeThrough" data-action="strikeThrough" data-element="s">S</button></li>',
-                'ref': '<li><button class="medium-editor-action medium-editor-action-ref" data-action="ref" data-element="a">*</button></li>'
+                'ref': '<li><button class="medium-editor-action medium-editor-action-ref" data-action="ref" data-element="a">*</button></li>',
+                'orderedlist': '<li><button class="medium-editor-action medium-editor-action-orderedlist" data-action="insertorderedlist" data-element="ol">1.</button></li>',
+                'unorderedlist': '<li><button class="medium-editor-action medium-editor-action-unorderedlist" data-action="insertunorderedlist" data-element="ul">&bull;</button></li>'
             };
-            return buttonTemplates[btnType];
+            return buttonTemplates[btnType] || false;
         },
 
         //TODO: actionTemplate
@@ -203,6 +236,9 @@ if (window.module !== undefined) {
         },
 
         initToolbar: function () {
+            if (this.toolbar) {
+                return this;
+            }
             this.toolbar = this.createToolbar();
             this.keepToolbarAlive = false;
             this.anchorForm = this.toolbar.querySelector('.medium-editor-toolbar-form-anchor');
@@ -241,21 +277,41 @@ if (window.module !== undefined) {
         },
 
         checkSelection: function () {
-            var newSelection;
-            if(this.getSelectionElement().getAttribute('data-disable-toolbar') || this.options.disableToolbar)
-                return this;
-            if (this.keepToolbarAlive !== true) {
+            var i,
+                newSelection,
+                hasMultiParagraphs,
+                selectionHtml,
+                selectionElement;
+            if (this.keepToolbarAlive !== true && !this.options.disableToolbar) {
                 newSelection = window.getSelection();
-                if (newSelection.toString().trim() === '') {
-                    this.toolbar.style.display = 'none';
+                selectionHtml = getSelectionHtml();
+                selectionHtml = selectionHtml.replace(/<[\S]+><\/[\S]+>/gim, '');
+                // Check if selection is between multi paragraph <p>.
+                hasMultiParagraphs = selectionHtml.match(/<(p|h[0-6]|blockquote)>([\s\S]*?)<\/(p|h[0-6]|blockquote)>/g);
+                hasMultiParagraphs = hasMultiParagraphs ? hasMultiParagraphs.length : 0;
+                if (newSelection.toString().trim() === ''
+                        || (this.options.allowMultiParagraphSelection === false && hasMultiParagraphs)) {
+                    this.hideToolbarActions();
                 } else {
-                    this.selection = newSelection;
-                    this.selectionRange = this.selection.getRangeAt(0);
-                    if (!this.getSelectionElement().getAttribute('data-disable-toolbar')) {
-                        this.toolbar.style.display = 'block';
-                        this.setToolbarButtonStates()
-                            .setToolbarPosition()
-                            .showToolbarActions();
+                    selectionElement = this.getSelectionElement();
+                    if (!selectionElement || selectionElement.getAttribute('data-disable-toolbar')) {
+                        this.hideToolbarActions();
+                    } else {
+                        this.selection = newSelection;
+                        this.selectionRange = this.selection.getRangeAt(0);
+                        if (!this.getSelectionElement().getAttribute('data-disable-toolbar')) {
+                            this.toolbar.style.display = 'block';
+                        }
+
+                        for (i = 0; i < this.elements.length; i += 1) {
+                            if (this.elements[i] === selectionElement) {
+                                this.setToolbarButtonStates()
+                                    .setToolbarPosition()
+                                    .showToolbarActions();
+                                return;
+                            }
+                        }
+                        this.hideToolbarActions();
                     }
                 }
             }
@@ -265,15 +321,32 @@ if (window.module !== undefined) {
         getSelectionElement: function () {
             var selection = window.getSelection(),
                 range = selection.getRangeAt(0),
-                parent = range.commonAncestorContainer.parentNode;
+                current = range.commonAncestorContainer,
+                parent = current.parentNode,
+                result,
+                getMediumElement = function(e) {
+                    var parent = e;
+                    try {
+                        while (!parent.getAttribute('data-medium-element')) {
+                            parent = parent.parentNode;
+                        }
+                    } catch (errb) {
+                        return false;
+                    }
+                    return parent;
+                };
+            // First try on current node
             try {
-                while (!parent.getAttribute('data-medium-element')) {
-                    parent = parent.parentNode;
+                if (current.getAttribute('data-medium-element')) {
+                    result = current;
+                } else {
+                    result = getMediumElement(parent);
                 }
+            // If not search in the parent nodes.
             } catch (err) {
-                return this.elements[0];
+                result = getMediumElement(parent);
             }
-            return parent;
+            return result;
         },
 
         setToolbarPosition: function () {
@@ -433,7 +506,7 @@ if (window.module !== undefined) {
             } else if (action === 'ref') {
                 this.triggerRefAction(e);
             } else {
-                document.execCommand(action, null, false);
+                document.execCommand(action, false, null);
                 this.notify();  
                 this.setToolbarPosition();
             }
@@ -463,7 +536,7 @@ if (window.module !== undefined) {
 
         triggerAnchorAction: function () {
             if (this.selection.anchorNode.parentNode.tagName.toLowerCase() === 'a') {
-                document.execCommand('unlink', null, false);
+                document.execCommand('unlink', false, null);
                 this.notify();
             } else {
                 if (this.anchorForm.style.display === 'block') {
@@ -509,22 +582,19 @@ if (window.module !== undefined) {
             return this;
         },
 
-        execFormatBlock: function (el) {
+       execFormatBlock: function (el) {
             var selectionData = this.getSelectionData(this.selection.anchorNode);
             // FF handles blockquote differently on formatBlock
             // allowing nesting, we need to use outdent
             // https://developer.mozilla.org/en-US/docs/Rich-Text_Editing_in_Mozilla
-            if (el === 'blockquote' && selectionData.el.parentNode.tagName.toLowerCase() === 'blockquote') {
-                var rval = document.execCommand('outdent', false, null);
-                this.notify();
-                return rval;
+            if (el === 'blockquote' && selectionData.el
+                    && selectionData.el.parentNode.tagName.toLowerCase() === 'blockquote') {
+                return document.execCommand('outdent', false, null);
             }
             if (selectionData.tagName === el) {
                 el = 'p';
             }
-            var rval = document.execCommand('formatBlock', false, el);
-            this.notify();
-            return rval;
+            return document.execCommand('formatBlock', false, el);
         },
 
         getSelectionData: function (el) {
@@ -564,34 +634,35 @@ if (window.module !== undefined) {
                 self.checkSelection(e);
             });
         },
+        
+        hideToolbarActions: function () {
+            this.keepToolbarAlive = false;
+            this.toolbar.classList.remove('medium-editor-toolbar-active');
+        },
 
         showToolbarActions: function () {
             var self = this,
-                timeoutWrapper = function () {
-                    self.keepToolbarAlive = false;
-                    self.toolbar.style.display = 'none';
-                    document.removeEventListener('click', timeoutWrapper);
-                },
                 timer;
             this.anchorForm.style.display = 'none';
             this.colorForm.style.display = 'none';
             this.refForm.style.display = 'none';
             this.toolbarActions.style.display = 'block';
             this.keepToolbarAlive = false;
-            clearTimeout(timer);
-            timer = setTimeout(function () {
-                document.addEventListener('click', timeoutWrapper);
-            }, 300);
+            window.clearTimeout(timer);
+            timer = setTimeout(function() {
+                if (!self.toolbar.classList.contains('medium-editor-toolbar-active')) {
+                    self.toolbar.classList.add('medium-editor-toolbar-active');
+                }
+            }, 100);
         },
 
         showAnchorForm: function () {
-            var input = this.anchorForm.querySelector('input');
             this.toolbarActions.style.display = 'none';
             this.savedSelection = saveSelection();
             this.anchorForm.style.display = 'block';
             this.keepToolbarAlive = true;
-            input.focus();
-            input.value = '';
+            this.anchorInput.focus();
+            this.anchorInput.value = '';
         },
 
         showRefForm: function () {
@@ -715,6 +786,9 @@ if (window.module !== undefined) {
             if (this.isActive) {
                 return;
             }
+            // if (this.toolbar !== undefined) {
+            //     this.toolbar.style.display = 'block';
+            // }
             this.isActive = true;
             for (i = 0; i < this.elements.length; i += 1) {
                 this.elements[i].setAttribute('contentEditable', true);
@@ -753,27 +827,32 @@ if (window.module !== undefined) {
             if (!this.options.forcePlainText) {
                 return;
             }
-            var i;
+            var i,
+                self = this,
+                pasteWrapper = function (e) {
+                    var paragraphs,
+                        html = '',
+                        p;
+                    e.target.classList.remove('medium-editor-placeholder');
+                    if (e.clipboardData && e.clipboardData.getData) {
+                        e.preventDefault();
+                        if (!self.options.disableReturn) {
+                            paragraphs = e.clipboardData.getData('text/plain').split(/[\r\n]/g);
+                            for (p = 0; p < paragraphs.length; p += 1) {
+                                if (paragraphs[p] !== "") {
+                                    html += '<p>' + paragraphs[p] + '</p>';
+                                }
+                            }
+                            document.execCommand('insertHTML', false, html);
+                        } else {
+                            document.execCommand('insertHTML', false, e.clipboardData.getData('text/plain'));
+                        }
+                    }
+                };
             for (i = 0; i < this.elements.length; i += 1) {
-                this.elements[i].addEventListener('paste', this.pasteWrapper.bind(this));
+                this.elements[i].addEventListener('paste', pasteWrapper);
             }
             return this;
-        },
-
-        pasteWrapper: function (e) {
-            var paragraphs,
-                html = '',
-                p;
-            e.target.classList.remove('medium-editor-placeholder');
-            if (e.clipboardData && e.clipboardData.getData) {
-                e.preventDefault();
-                paragraphs = e.clipboardData.getData('text/plain').split(/[\r\n]/g);
-                for (p = 0; p < paragraphs.length; p += 1) {
-                    html += '<p>' + paragraphs[p] + '</p>';
-                }
-                document.execCommand('insertHTML', false, html);
-                this.notify();
-            }
         },
 
         setPlaceholders: function () {

@@ -33,14 +33,16 @@ $button_size: 50px;
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 10;
-    display: none;
-    background: $bgcolor;
+    z-index: 600;
+    visibility: hidden;
+    background-color: $bgcolor;
+    border: 1px solid #000;
     font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
     font-size: 16px;
+    @include background(linear-gradient(bottom, $bgcolor, rgba($bgcolor, 0.75)));
     @include border-radius(5px);
     @include box-shadow(0 0 3px #000);
-
+    @include transition(top .075s ease-out,left .075s ease-out);
     ul {
         margin: 0;
         padding: 0;
@@ -55,7 +57,7 @@ $button_size: 50px;
             box-sizing: border-box;
             height: $button_size;
             width: $button_size;
-            background: $bgcolor;
+            background-color: $bgcolor;
             color: #fff;
             border: 0;
             border-right: 1px solid #000;
@@ -64,6 +66,7 @@ $button_size: 50px;
             font-weight: bold;
             text-decoration: none;
             text-transform: uppercase;
+            @include background(linear-gradient(bottom, $bgcolor, rgba($bgcolor, 0.89)));
             @include box-shadow(0 2px 2px rgba(0,0,0,0.3));
             @include transition(background-color .2s ease-in);
             &:hover {
@@ -81,6 +84,7 @@ $button_size: 50px;
         }
         .medium-editor-button-active {
             background-color: #000;
+            @include background(linear-gradient(bottom, $bgcolor, rgba(#000, 0.89)));
             color: #fff;
         }
         .medium-editor-action-underline {
@@ -88,6 +92,18 @@ $button_size: 50px;
         }
     }
 }
+
+// TODO: animation mixin
+.medium-editor-toolbar-active {
+    visibility: visible;
+    -webkit-animation: pop-upwards 160ms forwards linear;
+    -moz-animation: pop-upwards 160ms forwards linear;
+    -ms-animation: pop-upwards 160ms forwards linear;
+    -o-animation: pop-upwards 160ms forwards linear;
+    animation: pop-upwards 160ms forwards linear;
+    @include transition(top .075s ease-out,left .075s ease-out);
+}
+
 
 .medium-editor-action-bold {
     font-weight: bolder;
@@ -99,7 +115,9 @@ $button_size: 50px;
 
 .medium-editor-toolbar-form-anchor {
     display: none;
+    background: $bgcolor;
     color: #999;
+    @include border-radius(5px);
     input, a {
         font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
     }
@@ -137,4 +155,122 @@ $button_size: 50px;
         color: #b3b3b1;
         font-style: italic;
     }
+
 }
+
+@-webkit-keyframes pop-upwards {
+    0% {
+        @include transform(matrix(0.97,0,0,1,0,12));
+        @include opacity(0);
+    }
+
+    20% {
+        @include transform(matrix(0.99,0,0,1,0,2));
+        @include opacity(.7);
+
+    }
+
+    40% {
+        @include transform(matrix(1,0,0,1,0,-1));
+        @include opacity(1);
+    }
+
+    70% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+    }
+
+    100% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+
+    }
+}
+
+@-moz-keyframes pop-upwards {
+    0% {
+        @include transform(matrix(0.97,0,0,1,0,12));
+        @include opacity(0);
+    }
+
+    20% {
+        @include transform(matrix(0.99,0,0,1,0,2));
+        @include opacity(.7);
+
+    }
+
+    40% {
+        @include transform(matrix(1,0,0,1,0,-1));
+        @include opacity(1);
+    }
+
+    70% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+    }
+
+    100% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+
+    }
+}
+
+@-o-keyframes pop-upwards {
+    0% {
+        @include transform(matrix(0.97,0,0,1,0,12));
+        @include opacity(0);
+    }
+
+    20% {
+        @include transform(matrix(0.99,0,0,1,0,2));
+        @include opacity(.7);
+
+    }
+
+    40% {
+        @include transform(matrix(1,0,0,1,0,-1));
+        @include opacity(1);
+    }
+
+    70% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+    }
+
+    100% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+
+    }
+}
+
+@keyframes pop-upwards {
+    0% {
+        @include transform(matrix(0.97,0,0,1,0,12));
+        @include opacity(0);
+    }
+
+    20% {
+        @include transform(matrix(0.99,0,0,1,0,2));
+        @include opacity(.7);
+
+    }
+
+    40% {
+        @include transform(matrix(1,0,0,1,0,-1));
+        @include opacity(1);
+    }
+
+    70% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+    }
+
+    100% {
+        @include transform(matrix(1,0,0,1,0,0));
+        @include opacity(1);
+
+    }
+}
+

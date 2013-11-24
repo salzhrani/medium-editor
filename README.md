@@ -40,6 +40,7 @@ var elements = document.querySelectorAll('.editable'),
 
 ## Initialization options
 
+* __allowMultiParagraphSelection__: enables the toolbar when selecting multiple paragraphs/block elements. Default: true
 * __anchorInputPlaceholder__: text to be shown as placeholder of the anchor input. Default: _Paste or type a link_
 * __buttons__: the set of buttons to display on the toolbar. Default: ['bold', 'italic', 'underline', 'anchor', 'header1', 'header2', 'quote']
 * __delay__: time in milliseconds to show the toolbar. Default: 0
@@ -57,7 +58,7 @@ Example:
 ```javascript
 var editor = new MediumEditor('.editable', {
     anchorInputPlaceholder: 'Type a link',
-    buttons: ['bold', 'italic', 'quote']
+    buttons: ['bold', 'italic', 'quote'],
     diffLeft: 25,
     diffTop: 10,
     firstHeader: 'h1',
@@ -65,6 +66,16 @@ var editor = new MediumEditor('.editable', {
     delay: 1000
 });
 ```
+
+## Extra buttons
+
+Medium Editor, by default, will show only the buttons listed above to avoid a huge toolbar. There are a couple of extra buttons you can use:
+
+* __superscript__
+* __subscript__
+* __unorderedlist__
+* __orderedlist__
+
 
 ## API
 
@@ -75,6 +86,13 @@ var editor = new MediumEditor('.editable', {
 ## Image Upload
 
 [Pavel Linkesch](https://github.com/orthes) has developed a jQuery plugin to upload images following Medium.com functionality. Check it out at [http://orthes.github.io/medium-editor-images-plugin/](http://orthes.github.io/medium-editor-images-plugin/)
+
+
+## Angular directive
+
+[Thijs Wijnmaalen](https://github.com/thijsw) hacked together an AngularJS
+directive. Check it out at
+[https://github.com/thijsw/angular-medium-editor](https://github.com/thijsw/angular-medium-editor)
 
 ## Development
 
@@ -93,8 +111,54 @@ These are the available grunt tasks:
 
 The source files are located inside the __src__ directory. MediumEditor stylesheet was created using sass/compass, make sure you have the compass gem installed on your system.
 
+## Contributing
+
+[![Stories in Ready](https://badge.waffle.io/daviferreira/medium-editor.png)](https://waffle.io/daviferreira/medium-editor)
+
+1. Fork it
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Test your changes to the best of your ability.
+4. Update the documentation to reflect your changes if they add or changes current functionality.
+5. Commit your changes (`git commit -am 'Added some feature'`)
+6. Push to the branch (`git push origin my-new-feature`)
+7. Create new Pull Request
+
+## Contributors
+
+```
+ project  : medium-editor
+ repo age : 6 months
+ active   : 62 days
+ commits  : 276
+ files    : 29
+ authors  :
+   220	Davi Ferreira           79.7%
+    14	Maxime de Visscher      5.1%
+     8	Jarl Gunnar T. Flaten   2.9%
+     8	Derek Odegard           2.9%
+     8	Pedro Nasser            2.9%
+     3	Troels Knak-Nielsen     1.1%
+     3	Dmitri Cherniak         1.1%
+     1	happyaccidents          0.4%
+     1	muescha                 0.4%
+     1	t_kjaergaard            0.4%
+     1	typify                  0.4%
+     1	Bitdeli Chef            0.4%
+     1	waffleio                0.4%
+     1	David Collien           0.4%
+     1	Denis Gorbachev         0.4%
+     1	Maxime Dantec           0.4%
+     1	Nikita Korotaev         0.4%
+     1	Noah Paessel            0.4%
+     1	Tom MacWright           0.4%
+```
+
 ## License
 
 "THE BEER-WARE LICENSE" (Revision 42):
 
 As long as you retain this notice you can do whatever you want with this stuff. If we meet some day, and you think this stuff is worth it, you can buy me a beer in return.
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/daviferreira/medium-editor/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
